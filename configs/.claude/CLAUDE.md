@@ -16,3 +16,4 @@
 - Preferred language: Go
 - Follow existing code conventions in each file (indentation, naming, etc.)
 - Avoid obvious comments in code; only add comments to explain complex logic or non-obvious solutions
+- Avoid introducing helper methods that can be trivially inlined and don't add meaningful abstraction
