@@ -10,5 +10,6 @@ echo "Running stow..."
 [ ! -e ~/.config/nvim.backup ] && mv ~/.config/nvim ~/.config/nvim.backup
 [ ! -e ~/.config/ghostty/config.backup ] && mv ~/.config/ghostty/config ~/.config/ghostty/config.backup
 [ ! -e ~/.config/starship.toml.backup ] && mv ~/.config/starship.toml ~/.config/starship.toml.backup
+[ ! -e ~/.config/hypr/hypridle.conf.backup ] && mv ~/.config/hypr/hypridle.conf ~/.config/hypr/hypridle.conf.backup
 
 stow -t ~ configs
