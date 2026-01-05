@@ -166,17 +166,6 @@ slog.InfoContext(r.Context(), "request processed",
     "duration", time.Since(start))
 ```
 
-## sqlc Configuration
+## Database Configuration
 
-```yaml
-# sqlc.yaml
-version: "2"
-sql:
-  - engine: "sqlite"
-    queries: "internal/db/queries.sql"
-    schema: "internal/db/schema.sql"
-    gen:
-      go:
-        package: "db"
-        out: "internal/db"
-```
+See @go-database skill for sqlc configuration, date handling, and database layer patterns.

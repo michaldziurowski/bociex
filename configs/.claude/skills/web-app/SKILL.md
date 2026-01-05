@@ -15,7 +15,7 @@ You must use this exact stack:
 |-------|------------|-------|
 | Language | Go | Standard library `net/http` for routing |
 | Templates | templ | Never use `html/template` or `text/template` |
-| Database | sqlc + SQLite | Type-safe queries |
+| Database | sqlc + SQLite | See @go-database skill |
 | Interactivity | Alpine.js | Minimal client-side state |
 | Dynamic content | Alpine AJAX | Server-driven partial updates |
 | Logging | log/slog | Structured logging only |
