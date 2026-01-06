@@ -1,13 +1,9 @@
 {
-  "includeCoAuthoredBy": false,
   "attribution": {
     "commit": "",
     "pr": ""
   },
-  "enabledPlugins": {
-    "example-skills@anthropic-agent-skills": true,
-    "backend@brainly": true
-  },
+  "includeCoAuthoredBy": false,
   "permissions": {
     "allow": [
       "Read",
@@ -46,19 +42,6 @@
       "Skill(backend:*)",
       "WebSearch"
     ],
-    "ask": [
-      "Bash(git commit:*)",
-      "Bash(git push:*)",
-      "Bash(gh pr create:*)",
-      "Bash(gh pr merge:*)",
-      "Bash(gh pr close:*)",
-      "Bash(gh pr edit:*)",
-      "Bash(gh issue create:*)",
-      "Bash(gh issue close:*)",
-      "Bash(gh issue edit:*)",
-      "Bash(gh release:*)",
-      "Bash(gh repo delete:*)"
-    ],
     "deny": [
       "Read(**/.env)",
       "Read(**/.env.*)",
@@ -77,6 +60,22 @@
       "Read(**/secrets.json)",
       "Read(**/secrets.yaml)",
       "Read(**/secrets.yml)"
+    ],
+    "ask": [
+      "Bash(git push:*)",
+      "Bash(gh pr create:*)",
+      "Bash(gh pr merge:*)",
+      "Bash(gh pr close:*)",
+      "Bash(gh pr edit:*)",
+      "Bash(gh issue create:*)",
+      "Bash(gh issue close:*)",
+      "Bash(gh issue edit:*)",
+      "Bash(gh release:*)",
+      "Bash(gh repo delete:*)"
     ]
+  },
+  "enabledPlugins": {
+    "example-skills@anthropic-agent-skills": true,
+    "backend@brainly": true
   }
 }

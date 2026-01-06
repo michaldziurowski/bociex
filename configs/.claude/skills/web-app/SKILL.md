@@ -23,6 +23,23 @@ You must use this exact stack:
 
 State before coding: "Using Go stdlib, templ, Alpine AJAX, sqlc/SQLite, slog"
 
+## Templ Code Generation
+
+Declare templ as a Go tool dependency in go.mod:
+
+```
+tool github.com/a-h/templ/cmd/templ
+```
+
+Add generate directive in templates package:
+
+```go
+//go:generate go tool templ generate
+package templates
+```
+
+Run `go generate ./...` before building.
+
 ## Core Principles
 
 ### HTML-First Development

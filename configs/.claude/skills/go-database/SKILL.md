@@ -1,6 +1,6 @@
 ---
 name: go-database
-description: "Use when setting up database layer in Go projects. Enforces SQLite, sqlc, go:generate pattern, RFC3339 dates in UTC. Triggers: database setup, sqlc, sqlite, go database, data layer."
+description: "Use when setting up database layer in Go projects. Enforces modernc.org/sqlite (pure Go), sqlc, go:generate, RFC3339 dates in UTC, embedded migrations. Triggers: database setup, sqlc, sqlite, go database, data layer, modernc, migrations, embed."
 ---
 
 # Go Database Layer
@@ -13,25 +13,38 @@ Database layer conventions for Go applications using SQLite and sqlc.
 
 | Component | Technology |
 |-----------|------------|
-| Database | SQLite |
+| Database | SQLite via `modernc.org/sqlite` |
 | Query Generator | sqlc |
 | Date Format | RFC3339 (TEXT), always UTC |
+| DB Path | `DB_PATH` env var, fallback to `data/app.db` |
+
+## Why These Choices
+
+- **modernc.org/sqlite**: Pure Go, no CGO. Simplifies cross-compilation and CI.
+- **RFC3339 TEXT**: Human-readable, timezone-explicit, sorts lexicographically. SQLite DATETIME lacks timezone handling.
+- **Embedded migrations**: No external tools, single binary deployment.
+
+## SQLite Driver
+
+```go
+import _ "modernc.org/sqlite"
+```
+
+Driver name for `sql.Open` is `"sqlite"`.
 
 ## sqlc as Go Tool
 
-Declare sqlc as a tool dependency in `go.mod`:
+Add sqlc as a tool dependency in `go.mod` (Go 1.24+):
 
-```go
-//go:build tools
-
-package tools
-
-import (
-    _ "github.com/sqlc-dev/sqlc/cmd/sqlc"
-)
+```bash
+go get -tool github.com/sqlc-dev/sqlc/cmd/sqlc
 ```
 
-Create `tools.go` in the project root with this content. Run `go mod tidy` to add the dependency.
+This adds a `tool` directive to `go.mod`:
+
+```
+tool github.com/sqlc-dev/sqlc/cmd/sqlc
+```
 
 ## Code Generation
 
@@ -41,7 +54,7 @@ Place `//go:generate` directive in the db package:
 // internal/db/generate.go
 package db
 
-//go:generate go run github.com/sqlc-dev/sqlc/cmd/sqlc generate
+//go:generate go tool sqlc generate
 ```
 
 Run `go generate ./...` to generate sqlc files.
@@ -59,6 +72,11 @@ sql:
       go:
         package: "db"
         out: "internal/db"
+        overrides:
+          - column: "*.created_at"
+            go_type: "Time"
+          - column: "*.updated_at"
+            go_type: "Time"
 ```
 
 ## Date Handling
@@ -78,72 +96,7 @@ CREATE TABLE events (
 
 ### Custom Time Type
 
-sqlc needs a custom type to properly scan RFC3339 strings into `time.Time`:
-
-```go
-// internal/db/time.go
-package db
-
-import (
-    "database/sql/driver"
-    "fmt"
-    "time"
-)
-
-// Time wraps time.Time for SQLite RFC3339 text storage.
-type Time struct {
-    time.Time
-}
-
-func (t *Time) Scan(value interface{}) error {
-    if value == nil {
-        t.Time = time.Time{}
-        return nil
-    }
-    s, ok := value.(string)
-    if !ok {
-        return fmt.Errorf("expected string, got %T", value)
-    }
-    parsed, err := time.Parse(time.RFC3339, s)
-    if err != nil {
-        return err
-    }
-    t.Time = parsed
-    return nil
-}
-
-func (t Time) Value() (driver.Value, error) {
-    if t.IsZero() {
-        return nil, nil
-    }
-    return t.UTC().Format(time.RFC3339), nil
-}
-
-func Now() Time {
-    return Time{time.Now().UTC()}
-}
-```
-
-### sqlc Override
-
-Add type override in `sqlc.yaml`:
-
-```yaml
-version: "2"
-sql:
-  - engine: "sqlite"
-    queries: "internal/db/queries.sql"
-    schema: "internal/db/schema.sql"
-    gen:
-      go:
-        package: "db"
-        out: "internal/db"
-        overrides:
-          - column: "*.created_at"
-            go_type: "Time"
-          - column: "*.updated_at"
-            go_type: "Time"
-```
+sqlc needs a custom type to properly scan RFC3339 strings into `time.Time`. See @time.go for implementation.
 
 ### Usage
 
@@ -196,117 +149,39 @@ migrations/
 
 ### Migration Runner
 
-```go
-// internal/db/migrate.go
-package db
-
-import (
-	"context"
-	"database/sql"
-	"embed"
-	"fmt"
-	"log/slog"
-	"sort"
-	"strings"
-)
-
-//go:embed migrations/*.sql
-var migrationsFS embed.FS
-
-func Migrate(ctx context.Context, db *sql.DB) error {
-	if err := createMigrationsTable(ctx, db); err != nil {
-		return err
-	}
-	applied, err := getAppliedMigrations(ctx, db)
-	if err != nil {
-		return err
-	}
-	pending, err := getPendingMigrations(applied)
-	if err != nil {
-		return err
-	}
-	for _, name := range pending {
-		if err := runMigration(ctx, db, name); err != nil {
-			return fmt.Errorf("migration %s: %w", name, err)
-		}
-		slog.Info("applied migration", "name", name)
-	}
-	return nil
-}
-
-func createMigrationsTable(ctx context.Context, db *sql.DB) error {
-	_, err := db.ExecContext(ctx, `
-		CREATE TABLE IF NOT EXISTS schema_migrations (
-			version TEXT PRIMARY KEY,
-			applied_at DATETIME DEFAULT CURRENT_TIMESTAMP
-		)
-	`)
-	return err
-}
-
-func getAppliedMigrations(ctx context.Context, db *sql.DB) (map[string]bool, error) {
-	rows, err := db.QueryContext(ctx, "SELECT version FROM schema_migrations")
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	applied := make(map[string]bool)
-	for rows.Next() {
-		var version string
-		if err := rows.Scan(&version); err != nil {
-			return nil, err
-		}
-		applied[version] = true
-	}
-	return applied, rows.Err()
-}
-
-func getPendingMigrations(applied map[string]bool) ([]string, error) {
-	entries, err := migrationsFS.ReadDir("migrations")
-	if err != nil {
-		return nil, err
-	}
-	var pending []string
-	for _, e := range entries {
-		if !e.IsDir() && strings.HasSuffix(e.Name(), ".sql") && !applied[e.Name()] {
-			pending = append(pending, e.Name())
-		}
-	}
-	sort.Strings(pending)
-	return pending, nil
-}
-
-func runMigration(ctx context.Context, db *sql.DB, name string) error {
-	content, err := migrationsFS.ReadFile("migrations/" + name)
-	if err != nil {
-		return err
-	}
-	tx, err := db.BeginTx(ctx, nil)
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
-	if _, err := tx.ExecContext(ctx, string(content)); err != nil {
-		return err
-	}
-	if _, err := tx.ExecContext(ctx, "INSERT INTO schema_migrations (version) VALUES (?)", name); err != nil {
-		return err
-	}
-	return tx.Commit()
-}
-```
+See @migrate.go for full implementation. Key features:
+- Embeds SQL files via `//go:embed migrations/*.sql`
+- Tracks applied migrations in `schema_migrations` table
+- Runs pending migrations in transaction
 
 ### Call on Startup
 
 ```go
 // cmd/server/main.go
+package main
+
+import (
+	"context"
+	"database/sql"
+	"log/slog"
+	"os"
+
+	"yourmodule/internal/db"
+
+	_ "modernc.org/sqlite"
+)
+
 func main() {
-	db, err := sql.Open("sqlite", "data/app.db")
+	dbPath := os.Getenv("DB_PATH")
+	if dbPath == "" {
+		dbPath = "data/app.db"
+	}
+	conn, err := sql.Open("sqlite", dbPath)
 	if err != nil {
 		slog.Error("db open failed", "err", err)
 		os.Exit(1)
 	}
-	if err := db.Migrate(context.Background(), db); err != nil {
+	if err := db.Migrate(context.Background(), conn); err != nil {
 		slog.Error("migration failed", "err", err)
 		os.Exit(1)
 	}
@@ -320,7 +195,9 @@ Keep `schema.sql` as the full schema (all tables with `IF NOT EXISTS`). sqlc use
 
 ## Quality Checklist
 
-- [ ] sqlc declared as Go tool in `tools.go`
+- [ ] Using `modernc.org/sqlite` driver (no CGO)
+- [ ] DB path from `DB_PATH` env var with fallback
+- [ ] sqlc declared as Go tool in `go.mod`
 - [ ] `//go:generate` directive in db package
 - [ ] Dates stored as RFC3339 TEXT
 - [ ] All timestamps in UTC
