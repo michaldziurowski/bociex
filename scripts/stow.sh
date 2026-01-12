@@ -13,3 +13,4 @@ echo "Running stow..."
 [ ! -e ~/.config/hypr/hypridle.conf.backup ] && mv ~/.config/hypr/hypridle.conf ~/.config/hypr/hypridle.conf.backup
 
 stow -t ~ configs
+stow --no-folding -t ~ bin

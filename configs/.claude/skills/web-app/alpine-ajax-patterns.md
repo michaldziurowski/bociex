@@ -4,14 +4,14 @@ Alpine AJAX enables server-driven partial page updates. The server returns HTML 
 
 ## Setup
 
-Include Alpine.js and the AJAX plugin:
+Include Alpine AJAX via CDN (preferred). Alpine AJAX must load before Alpine.js:
 
 ```html
-<script src="/static/js/alpine.min.js" defer></script>
-<script src="/static/js/ajax.min.js" defer></script>
+<script defer src="https://cdn.jsdelivr.net/npm/@imacrayon/alpine-ajax@0.12.6/dist/cdn.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.1/dist/cdn.min.js"></script>
 ```
 
-Download from: https://alpine-ajax.js.org/
+The `defer` attribute ensures scripts load in order after DOM is ready.
 
 ## Core Concepts
 
@@ -20,7 +20,7 @@ Download from: https://alpine-ajax.js.org/
 `x-target` specifies which element receives the server response:
 
 ```html
-<form x-init x-target="results" action="/search">
+<form x-target="results" action="/search">
     <input type="search" name="q"/>
     <button>Search</button>
 </form>
@@ -28,6 +28,34 @@ Download from: https://alpine-ajax.js.org/
 <div id="results">
     <!-- Server response replaces this content -->
 </div>
+```
+
+### Critical: Server Response Must Include Matching ID
+
+**The server response MUST contain an element with the same `id` that `x-target` points to.** Alpine AJAX finds the matching element in the response and uses it to replace the target. Without a matching ID, the replacement fails silently.
+
+```html
+<!-- Page has: -->
+<ul id="comments">
+    <li>Comment #1</li>
+</ul>
+<form x-target="comments" method="post" action="/comment">
+    <input name="text" required/>
+    <button>Submit</button>
+</form>
+```
+
+```html
+<!-- Server MUST respond with element that has id="comments": -->
+<ul id="comments">
+    <li>Comment #1</li>
+    <li>New comment</li>
+</ul>
+```
+
+```html
+<!-- WRONG - response without matching ID (will not work): -->
+<li>New comment</li>
 ```
 
 ### Target Modifiers
@@ -46,7 +74,7 @@ Download from: https://alpine-ajax.js.org/
 Forms with `x-target` submit via AJAX automatically:
 
 ```html
-<form x-init x-target="messages" action="/messages" method="post">
+<form x-target="messages" action="/messages" method="post">
     <input name="content" required/>
     <button>Send</button>
 </form>
@@ -60,7 +88,6 @@ Forms with `x-target` submit via AJAX automatically:
 
 ```html
 <form
-    x-init
     x-target="items"
     action="/items"
     method="post"
@@ -74,7 +101,7 @@ Forms with `x-target` submit via AJAX automatically:
 ### Search with Debounce
 
 ```html
-<form x-init x-target="results" action="/search">
+<form x-target="results" action="/search">
     <input
         type="search"
         name="q"
@@ -90,7 +117,7 @@ Forms with `x-target` submit via AJAX automatically:
 ### AJAX Link
 
 ```html
-<a x-init x-target="content" href="/page/2">Next Page</a>
+<a x-target="content" href="/page/2">Next Page</a>
 
 <div id="content">
     <!-- Page content loaded here -->
@@ -104,7 +131,6 @@ Handle via server - return updated nav with active class:
 ```go
 templ NavLink(href string, label string, current string) {
     <a
-        x-init
         x-target="main-content"
         href={ templ.SafeURL(href) }
         class={ templ.KV("active", href == current) }
@@ -119,7 +145,7 @@ templ NavLink(href string, label string, current string) {
 ### Disable During Request
 
 ```html
-<form x-init x-target="results" action="/search">
+<form x-target="results" action="/search">
     <button x-bind:disabled="$ajax.submitting">
         <span x-show="!$ajax.submitting">Search</span>
         <span x-show="$ajax.submitting">Loading...</span>
@@ -131,7 +157,7 @@ templ NavLink(href string, label string, current string) {
 
 ```html
 <div x-data>
-    <form x-init x-target="results" action="/data">
+    <form x-target="results" action="/data">
         <button>Load Data</button>
     </form>
 
@@ -158,7 +184,6 @@ templ NavLink(href string, label string, current string) {
 
 ```html
 <form
-    x-init
     x-target="results"
     action="/submit"
     method="post"
@@ -171,33 +196,36 @@ templ NavLink(href string, label string, current string) {
 
 ## Server Response Patterns
 
-### Return Partial HTML
+### Return Partial HTML with Matching ID
 
-Handler returns just the fragment to update:
+The response must include an element with the same `id` as the `x-target`. Wrap the content in the target element:
 
 ```go
 func handleSearch(w http.ResponseWriter, r *http.Request) {
     query := r.URL.Query().Get("q")
     results := search(query)
-
-    // Return just the results list, not full page
     templates.SearchResults(results).Render(r.Context(), w)
 }
 ```
 
 ```go
+// Response MUST include the target element with matching id
 templ SearchResults(results []Result) {
-    if len(results) == 0 {
-        <p>No results found.</p>
-    } else {
-        <ul>
-            for _, r := range results {
-                <li>{ r.Title }</li>
-            }
-        </ul>
-    }
+    <div id="results">
+        if len(results) == 0 {
+            <p>No results found.</p>
+        } else {
+            <ul>
+                for _, r := range results {
+                    <li>{ r.Title }</li>
+                }
+            </ul>
+        }
+    </div>
 }
 ```
+
+The page has `<div id="results">` and `x-target="results"`. The response contains `<div id="results">...</div>` which replaces the target.
 
 ### Multiple Targets
 
@@ -215,7 +243,7 @@ templ UpdateResponse(user User, stats Stats) {
 ```
 
 ```html
-<button x-init x-target="user-info stats" hx-get="/refresh">
+<button x-target="user-info stats" hx-get="/refresh">
     Refresh
 </button>
 ```
@@ -251,7 +279,7 @@ User data, lists, counts - fetch from server:
     @NotificationList(notifications)
 </div>
 
-<button x-init x-target="notifications" hx-get="/notifications">
+<button x-target="notifications" hx-get="/notifications">
     Refresh
 </button>
 ```

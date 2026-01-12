@@ -3,7 +3,7 @@
 
 find scripts/ -type f -exec chmod +x {} \;
 
-find tools/ -type f -exec chmod +x {} \;
+find bin/ -type f -exec chmod +x {} \;
 
 
 ./scripts/browser.sh

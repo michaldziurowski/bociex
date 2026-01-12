@@ -151,16 +151,36 @@ See @templ-patterns.md for component composition.
 
 Alpine AJAX enables server-driven partial updates without full page reloads.
 
+Include via CDN (Alpine AJAX must load before Alpine.js):
+
+```html
+<script defer src="https://cdn.jsdelivr.net/npm/@imacrayon/alpine-ajax@0.12.6/dist/cdn.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.1/dist/cdn.min.js"></script>
+```
+
 ### Basic Pattern
 
 ```html
-<form x-init x-target="results" action="/search" method="get">
+<form x-target="results" action="/search" method="get">
     <input type="search" name="q" />
     <button type="submit">Search</button>
 </form>
 <div id="results">
     <!-- Server response replaces this content -->
 </div>
+```
+
+### Critical: Server Response Must Include Matching ID
+
+The server response MUST contain an element with the same `id` that `x-target` points to. Without this, Alpine AJAX cannot perform the replacement.
+
+```go
+// Response MUST include element with id="results"
+templ SearchResults(results []Result) {
+    <div id="results">
+        // ... content ...
+    </div>
+}
 ```
 
 ### Key Attributes
@@ -177,7 +197,7 @@ Alpine AJAX enables server-driven partial updates without full page reloads.
 Forms with `x-target` submit via AJAX automatically:
 
 ```html
-<form x-init x-target="messages" action="/messages" method="post">
+<form x-target="messages" action="/messages" method="post">
     <input name="content" required />
     <button>Send</button>
 </form>
@@ -188,14 +208,13 @@ Forms with `x-target` submit via AJAX automatically:
 Use Alpine events to trigger updates:
 
 ```html
-<input
-    type="search"
-    name="q"
-    x-init
-    x-target="results"
-    hx-get="/search"
-    @input.debounce.300ms="$el.form.requestSubmit()"
-/>
+<form x-target="results" action="/search">
+    <input
+        type="search"
+        name="q"
+        @input.debounce.300ms="$el.form.requestSubmit()"
+    />
+</form>
 ```
 
 See @alpine-ajax-patterns.md for advanced patterns.
@@ -213,6 +232,7 @@ Before completing any web app task, verify:
 - [ ] Forms use native validation where possible
 - [ ] Interactive elements are correct (button vs a vs input)
 - [ ] AJAX responses return HTML fragments, not JSON
+- [ ] AJAX responses include element with matching `id` for `x-target`
 
 ## Reference Files
 

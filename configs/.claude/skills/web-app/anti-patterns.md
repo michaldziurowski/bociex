@@ -88,6 +88,38 @@ func main() {
 
 Rationale: Graceful shutdown allows in-flight requests to complete.
 
+## Alpine AJAX Anti-Patterns
+
+### Never: Response Without Matching ID
+
+The server response MUST contain an element with the same `id` that `x-target` points to. Without this, Alpine AJAX cannot replace the target.
+
+```go
+// WRONG - response without matching id
+templ SearchResults(results []Result) {
+    <ul>
+        for _, r := range results {
+            <li>{ r.Title }</li>
+        }
+    </ul>
+}
+```
+
+```go
+// CORRECT - response includes element with id="results"
+templ SearchResults(results []Result) {
+    <div id="results">
+        <ul>
+            for _, r := range results {
+                <li>{ r.Title }</li>
+            }
+        </ul>
+    </div>
+}
+```
+
+The page has `x-target="results"` pointing to `<div id="results">`. The response must include `<div id="results">...</div>` for the replacement to work.
+
 ## JavaScript Anti-Patterns
 
 ### Never: JavaScript for What HTML Does
