@@ -19,7 +19,7 @@ function gimme-aws-creds() {
                 -it devopsinfra/docker-okta-aws-sso:latest "$@"
 }
 
-export SSH_AUTH_SOCK="$XDG_RUNTIME_DIR/gcr/ssh"
+export SSH_AUTH_SOCK="$HOME/.bitwarden-ssh-agent.sock"
 
 export PATH="$PATH:$(go env GOPATH)/bin"
 
